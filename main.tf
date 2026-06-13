@@ -9,15 +9,14 @@ locals {
         local.worker_node_ips
     )
 }
-
 resource "proxmox_virtual_environment_download_file" "talos_image" {
+    for_each = toset(distinct(concat(values(var.control_nodes), values(var.worker_nodes))))
     content_type = "iso"
     datastore_id = var.proxmox_iso_datastore
-    node_name    = values(var.control_nodes)[0]
+    node_name    = each.value
     url          = "https://factory.talos.dev/image/${var.talos_schematic_id}/v${var.talos_version}/metal-${var.talos_arch}.qcow2"
     file_name    = "${var.talos_cluster_name}-talos_linux-${var.talos_schematic_id}-${var.talos_version}-${var.talos_arch}.img"
 }
-
 resource "proxmox_virtual_environment_vm" "talos_control_vm" {
     for_each  = var.control_nodes
     name      = each.key
@@ -36,7 +35,7 @@ resource "proxmox_virtual_environment_vm" "talos_control_vm" {
     }
     disk {
         datastore_id = var.proxmox_image_datastore
-        file_id      = proxmox_virtual_environment_download_file.talos_image.id
+        file_id      = proxmox_virtual_environment_download_file.talos_image[each.value].id
         interface    = "virtio0"
         iothread     = true
         discard      = "on"
@@ -70,7 +69,7 @@ resource "proxmox_virtual_environment_vm" "talos_worker_vm" {
     }
     disk {
         datastore_id = var.proxmox_image_datastore
-        file_id      = proxmox_virtual_environment_download_file.talos_image.id
+        file_id      = proxmox_virtual_environment_download_file.talos_image[each.value].id
         interface    = "virtio0"
         iothread     = true
         discard      = "on"
